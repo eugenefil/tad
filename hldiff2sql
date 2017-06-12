@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+
+import argparse
+import sys
+import csv
+
+
+def readrows(file):
+    r = csv.reader(file)
+    header = next(r)
+    return list(r), header
+
+
+def build_insert_sql(table, cols):
+    return 'insert into {table} ({cols}) values ({values})'.format(
+        table=table,
+        cols=', '.join(cols),
+        values=', '.join(['?'] * len(cols))
+    )
+
+
+def filter_inserted_rows(rows):
+    return [row[1:] for row in filter(lambda r: r[0] == '+++', rows)]
+
+
+def writerows(file, rows):
+    csv.writer(file, delimiter='\t').writerows(rows)
+
+
+def main(table):
+    rows, cols = readrows(sys.stdin)
+    cols = cols[1:] # remove action column from header
+
+    sql = build_insert_sql(table, cols)
+    print(sql)
+
+    inserted_rows = filter_inserted_rows(rows)
+    writerows(sys.stdout, [cols] + inserted_rows)
+
+
+def setup():
+    # Redefine stdin to not translate newlines. Otherwise when reading
+    # csv field containing \r\n on Windows it gets translated to \n,
+    # i.e. data gets corrupted. Always use utf-8.
+    sys.stdin = open(
+        sys.stdin.fileno(),
+        mode=sys.stdin.mode,
+        encoding='utf-8',
+        errors=sys.stdin.errors,
+        newline='',
+        closefd=False
+    )
+    # Redefine stdout to not translate newlines. csv module (as per
+    # rfc 4180) writes \r\n. Otherwise when on Windows, \n is
+    # translated to \r\n, so original \r\n becomes \r\r\n. Always use
+    # utf-8.
+    sys.stdout = open(
+        sys.stdout.fileno(),
+        mode=sys.stdout.mode,
+        encoding='utf-8',
+        errors=sys.stdout.errors,
+        newline='',
+        closefd=False
+    )
+
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description='Convert highlighter diff to sql instructions to patch the table'
+    )
+    p.add_argument(
+        'table',
+        help='target table'
+    )
+    return p.parse_args()
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    setup()
+    main(args.table)
