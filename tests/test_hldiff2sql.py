@@ -1,13 +1,12 @@
 # TODO: tests
-# inserted row
 # typed header
-# deleted row
 # updated row
 # empty input
 # ignore context rows
 # multiple changes
 # break on schema row in diff
 # detect input format (csv, tsv)
+# spaces in column names
 
 import subprocess
 import csv
@@ -52,6 +51,19 @@ def test_inserted_row():
         ['+++', '2', 'bill']
     ]) == [
         ['insert into t (id, name) values (?, ?)'],
+        ['id', 'name'],
+        ['1', 'john'],
+        ['2', 'bill']
+    ]
+
+
+def test_deleted_row():
+    assert convert([
+        ['@@', 'id', 'name'],
+        ['---', '1', 'john'],
+        ['---', '2', 'bill']
+    ]) == [
+        ['delete from t where id = ? and name = ?'],
         ['id', 'name'],
         ['1', 'john'],
         ['2', 'bill']
