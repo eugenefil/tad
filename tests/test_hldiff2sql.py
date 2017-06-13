@@ -4,7 +4,6 @@
 # typed header
 # empty input
 # ignore context rows
-# multiple changes
 # break on schema row in diff
 # detect input format (csv, tsv)
 # spaces in column names
@@ -69,50 +68,64 @@ def convert(input_rows):
     return list(csv.reader(StringIO(out), delimiter='\t'))
 
 
+tests = [
+    'insert',
+    [
+        ['@@', 'id', 'name'],
+        ['+++', '1', 'john'],
+        ['+++', '2', 'bill']
+    ],
+    [
+        ['insert into t (id, name) values (?, ?)'],
+        ['id', 'name'],
+        ['1', 'john'],
+        ['2', 'bill']
+    ],
+    
+    'delete',
+    [
+        ['@@', 'id', 'name'],
+        ['---', '1', 'john'],
+        ['---', '2', 'bill']
+    ],
+    [
+        ['delete from t where id = ? and name = ?'],
+        ['id', 'name'],
+        ['1', 'john'],
+        ['2', 'bill']
+    ],
+
+    'update',
+    [
+        ['@@', 'id', 'name', 'age'],
+        ['->', '1', 'john->bill', '50->60']
+    ],
+    [
+        ['update t set name = ?, age = ? where id = ? and name = ? and age = ?'],
+        ['name', 'age', 'id', 'name', 'age'],
+        ['bill', '60', '1', 'john', '50']
+    ],
+
+    'different-kinds-of-changes',
+    [
+        ['@@', 'id', 'name'],
+        ['+++', '1', 'john'],
+        ['---', '2', 'bill']
+    ],
+    [
+        ['insert into t (id, name) values (?, ?)'],
+        ['id', 'name'],
+        ['1', 'john'],
+        [],
+        ['delete from t where id = ? and name = ?'],
+        ['id', 'name'],
+        ['2', 'bill']
+    ]
+]
 @pytest.mark.parametrize(
     'testid,in_rows,out_rows',
-    [
-        (
-            'insert',
-            [
-                ['@@', 'id', 'name'],
-                ['+++', '1', 'john'],
-                ['+++', '2', 'bill']
-            ],
-            [
-                ['insert into t (id, name) values (?, ?)'],
-                ['id', 'name'],
-                ['1', 'john'],
-                ['2', 'bill']
-            ]
-        ),
-        (
-            'delete',
-            [
-                ['@@', 'id', 'name'],
-                ['---', '1', 'john'],
-                ['---', '2', 'bill']
-            ],
-            [
-                ['delete from t where id = ? and name = ?'],
-                ['id', 'name'],
-                ['1', 'john'],
-                ['2', 'bill']
-            ]
-        ),
-        (
-            'update',
-            [
-                ['@@', 'id', 'name', 'age'],
-                ['->', '1', 'john->bill', '50->60']
-            ],
-            [
-                ['update t set name = ?, age = ? where id = ? and name = ? and age = ?'],
-                ['name', 'age', 'id', 'name', 'age'],
-                ['bill', '60', '1', 'john', '50']
-            ]
-        )
-    ]
+    # split list of tests into triples
+    [tests[i:i + 3] for i in range(0, len(tests), 3)]
 )
 def test_convert(testid, in_rows, out_rows):
     assert convert(in_rows) == out_rows

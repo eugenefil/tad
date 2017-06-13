@@ -11,7 +11,7 @@ def readrows(file):
     return list(r), header
 
 
-def build_insert_sql(table, cols):
+def gen_insert_sql(table, cols):
     return 'insert into {table} ({cols}) values ({values})'.format(
         table=table,
         cols=', '.join(cols),
@@ -19,22 +19,42 @@ def build_insert_sql(table, cols):
     )
 
 
-def filter_inserted_rows(rows):
-    return [row[1:] for row in filter(lambda r: r[0] == '+++', rows)]
+def gen_insert_chunks(table, diffrows, cols):
+    inserted_rows = [
+        row[1:]
+        for row in filter(lambda r: r[0] == '+++', diffrows)
+    ]
+    if inserted_rows:
+        return [
+            [[gen_insert_sql(table, cols)]] +
+            [cols] + 
+            inserted_rows
+        ]
+    return []
 
 
-def build_delete_sql(table, cols):
+def gen_delete_sql(table, cols):
     return 'delete from {table} where {filters}'.format(
         table=table,
         filters=' and '.join([c + ' = ?' for c in cols])
     )
 
 
-def filter_deleted_rows(rows):
-    return [row[1:] for row in filter(lambda r: r[0] == '---', rows)]
+def gen_delete_chunks(table, diffrows, cols):
+    deleted_rows = [
+        row[1:]
+        for row in filter(lambda r: r[0] == '---', diffrows)
+    ]
+    if deleted_rows:
+        return [
+            [[gen_delete_sql(table, cols)]] +
+            [cols] +
+            deleted_rows
+        ]
+    return []
 
 
-def build_update_sql(table, cols, updated_cols):
+def gen_update_sql(table, cols, updated_cols):
     return 'update {table} set {setters} where {filters}'.format(
         table=table,
         setters=', '.join([c + ' = ?' for c in updated_cols]),
@@ -42,13 +62,9 @@ def build_update_sql(table, cols, updated_cols):
     )
 
 
-def filter_updated_rows(rows):
-    return filter(lambda r: r[0].endswith('->'), rows)
-    
-
-def get_updates(rows):
-    updates = []
-    for row in rows:
+def get_update_items(updated_rows):
+    items = []
+    for row in updated_rows:
         tag = row[0]
         updated_cols = []
         new_vals = []
@@ -62,9 +78,28 @@ def get_updates(rows):
             else:
                 orig_row.append(val)
 
-        updates.append((updated_cols, new_vals, orig_row))
+        items.append((updated_cols, new_vals, orig_row))
         
+    return items
+
+
+def gen_update_chunks(table, diffrows, cols):
+    updated_rows = filter(lambda r: r[0].endswith('->'), diffrows)
+    items = get_update_items(updated_rows)
+    updates = []
+    for updated_col_indices, new_vals, orig_row in items:
+        updated_cols = [cols[i] for i in updated_col_indices]
+        updates.append([
+            [gen_update_sql(table, cols, updated_cols)],
+            updated_cols + cols,
+            new_vals + orig_row
+        ])
     return updates
+
+
+def insert_between(value, lst):
+    """Return list where value is inserted between every two items of lst."""
+    return sum([[x, value] for x in lst[:-1]], []) + lst[-1:]
 
 
 def writerows(file, rows):
@@ -72,33 +107,20 @@ def writerows(file, rows):
 
 
 def main(table):
-    rows, cols = readrows(sys.stdin)
+    diffrows, cols = readrows(sys.stdin)
     cols = cols[1:] # remove action column from header
 
-    inserted_rows = filter_inserted_rows(rows)
-    if inserted_rows:
-        sql = build_insert_sql(table, cols)
-        print(sql)
-        writerows(sys.stdout, [cols] + inserted_rows)
-
-    deleted_rows = filter_deleted_rows(rows)
-    if deleted_rows:
-        sql = build_delete_sql(table, cols)
-        print(sql)
-        writerows(sys.stdout, [cols] + deleted_rows)
-
-
-    updated_rows = filter_updated_rows(rows)
-    if updated_rows:
-        updates = get_updates(updated_rows)
-        for updated_col_indices, new_vals, orig_row in updates:
-            updated_cols = [cols[i] for i in updated_col_indices]
-            sql = build_update_sql(table, cols, updated_cols)
-            print(sql)
-            writerows(
-                sys.stdout,
-                [updated_cols + cols] + [new_vals + orig_row]
-            )
+    chunks = (
+        gen_insert_chunks(table, diffrows, cols) +
+        gen_delete_chunks(table, diffrows, cols) +
+        gen_update_chunks(table, diffrows, cols)
+    )
+    # insert empty rows between chunks, they will be output as empty
+    # line separators
+    chunks = insert_between([[]], chunks)
+    # concatenate chunks to produce list of rows
+    out_rows = sum(chunks, [])
+    writerows(sys.stdout, out_rows)    
 
 
 def setup():
