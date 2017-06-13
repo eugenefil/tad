@@ -1,6 +1,4 @@
 # TODO: tests
-# utf-8
-# crlf
 # detect input format (csv, tsv)
 # spaces in column names
 
@@ -152,7 +150,29 @@ tests = [
         ['...', 'skipped rows'],
         [':', 'reordered row']
     ],
-    []
+    [],
+
+    'utf-8',
+    [
+        ['@@', 'name'],
+        ['+++', 'Василий']
+    ],
+    [
+        ['insert into t (name) values (?)'],
+        ['name'],
+        ['Василий']
+    ],
+
+    'crlf',
+    [
+        ['@@', 'text'],
+        ['+++', '1\r\n2']
+    ],
+    [
+        ['insert into t (text) values (?)'],
+        ['text'],
+        ['1\r\n2']
+    ]
 ]
 @pytest.mark.parametrize(
     'testid,in_rows,out_rows',
