@@ -1,5 +1,4 @@
 # TODO: tests
-# two updated columns
 # different updated columns in different rows
 # updated row with --> action tag
 # typed header
@@ -70,38 +69,50 @@ def convert(input_rows):
     return list(csv.reader(StringIO(out), delimiter='\t'))
 
 
-def test_inserted_row():
-    assert convert([
-        ['@@', 'id', 'name'],
-        ['+++', '1', 'john'],
-        ['+++', '2', 'bill']
-    ]) == [
-        ['insert into t (id, name) values (?, ?)'],
-        ['id', 'name'],
-        ['1', 'john'],
-        ['2', 'bill']
+@pytest.mark.parametrize(
+    'testid,in_rows,out_rows',
+    [
+        (
+            'insert',
+            [
+                ['@@', 'id', 'name'],
+                ['+++', '1', 'john'],
+                ['+++', '2', 'bill']
+            ],
+            [
+                ['insert into t (id, name) values (?, ?)'],
+                ['id', 'name'],
+                ['1', 'john'],
+                ['2', 'bill']
+            ]
+        ),
+        (
+            'delete',
+            [
+                ['@@', 'id', 'name'],
+                ['---', '1', 'john'],
+                ['---', '2', 'bill']
+            ],
+            [
+                ['delete from t where id = ? and name = ?'],
+                ['id', 'name'],
+                ['1', 'john'],
+                ['2', 'bill']
+            ]
+        ),
+        (
+            'update',
+            [
+                ['@@', 'id', 'name', 'age'],
+                ['->', '1', 'john->bill', '50->60']
+            ],
+            [
+                ['update t set name = ?, age = ? where id = ? and name = ? and age = ?'],
+                ['name', 'age', 'id', 'name', 'age'],
+                ['bill', '60', '1', 'john', '50']
+            ]
+        )
     ]
-
-
-def test_deleted_row():
-    assert convert([
-        ['@@', 'id', 'name'],
-        ['---', '1', 'john'],
-        ['---', '2', 'bill']
-    ]) == [
-        ['delete from t where id = ? and name = ?'],
-        ['id', 'name'],
-        ['1', 'john'],
-        ['2', 'bill']
-    ]
-
-
-def test_updated_row():
-    assert convert([
-        ['@@', 'id', 'name', 'age'],
-        ['->', '1', 'john->bill', '50->60']
-    ]) == [
-        ['update t set name = ?, age = ? where id = ? and name = ? and age = ?'],
-        ['name', 'age', 'id', 'name', 'age'],
-        ['bill', '60', '1', 'john', '50']
-    ]
+)
+def test_convert(testid, in_rows, out_rows):
+    assert convert(in_rows) == out_rows
