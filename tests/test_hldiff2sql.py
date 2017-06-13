@@ -1,5 +1,4 @@
 # TODO: tests
-# detect input format (csv, tsv)
 # spaces in column names
 
 import subprocess
@@ -67,7 +66,7 @@ def convert(input_rows, typed_header=False):
     )
     
     out, err = run(cmd, input)
-    return list(csv.reader(StringIO(out), delimiter='\t'))
+    return list(csv.reader(StringIO(out)))
 
 
 tests = [

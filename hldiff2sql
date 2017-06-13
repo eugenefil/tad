@@ -118,7 +118,7 @@ def insert_between(value, lst):
 
 
 def writerows(file, rows):
-    csv.writer(file, delimiter='\t').writerows(rows)
+    csv.writer(file).writerows(rows)
 
 
 def main(table, typed_header=False):
