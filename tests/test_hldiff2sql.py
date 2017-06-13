@@ -1,6 +1,6 @@
 # TODO: tests
-# ignore context rows
-# break on schema row in diff
+# utf-8
+# crlf
 # detect input format (csv, tsv)
 # spaces in column names
 
@@ -143,7 +143,16 @@ tests = [
         ['update t set tag = ? where id = ? and tag = ?'],
         ['tag', 'id', 'tag'],
         ['-->', '1', '->']
-    ]
+    ],
+
+    'ignore-other-action-tags',
+    [
+        ['@@', 'tag'],
+        ['', 'context row'],
+        ['...', 'skipped rows'],
+        [':', 'reordered row']
+    ],
+    []
 ]
 @pytest.mark.parametrize(
     'testid,in_rows,out_rows',
@@ -177,3 +186,13 @@ def test_input_with_typed_header():
         ['name', 'id integer', 'name'],
         ['pat', '3', 'sam']
     ]
+
+
+def test_break_on_schema_change():
+    with pytest.raises(RunError) as excinfo:
+        convert([
+            ['!', '', '+++'],
+            ['@@', 'id', 'name']
+        ])
+    assert excinfo.value.returncode == 1
+    excinfo.match('Error: NotSupported')

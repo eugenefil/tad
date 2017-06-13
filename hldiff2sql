@@ -5,12 +5,23 @@ import sys
 import csv
 
 
-def readrows(file):
+class Error(Exception):
+
+    def __init__(self, *args):
+        super().__init__(*args)
+
+
+def read_diff(file):
     r = csv.reader(file)
     try:
         header = next(r)
     except StopIteration:
         return [], []
+
+    # break on schema changes
+    if header[0] == '!':
+        raise Error('NotSupported: input diff contains schema row, but schema changes are not supported')
+
     return list(r), header
 
 
@@ -111,7 +122,7 @@ def writerows(file, rows):
 
 
 def main(table, typed_header=False):
-    diffrows, col_defs = readrows(sys.stdin)
+    diffrows, col_defs = read_diff(sys.stdin)
     col_defs = col_defs[1:] # remove action column
 
     colnames = col_defs
