@@ -1,5 +1,4 @@
 # TODO: tests
-# different updated columns in different rows
 # updated row with --> action tag
 # typed header
 # empty input
@@ -110,7 +109,8 @@ tests = [
     [
         ['@@', 'id', 'name'],
         ['+++', '1', 'john'],
-        ['---', '2', 'bill']
+        ['---', '2', 'bill'],
+        ['->', '3', 'sam->pat']
     ],
     [
         ['insert into t (id, name) values (?, ?)'],
@@ -119,7 +119,11 @@ tests = [
         [],
         ['delete from t where id = ? and name = ?'],
         ['id', 'name'],
-        ['2', 'bill']
+        ['2', 'bill'],
+        [],
+        ['update t set name = ? where id = ? and name = ?'],
+        ['name', 'id', 'name'],
+        ['pat', '3', 'sam']
     ]
 ]
 @pytest.mark.parametrize(
