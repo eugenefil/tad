@@ -7,7 +7,10 @@ import csv
 
 def readrows(file):
     r = csv.reader(file)
-    header = next(r)
+    try:
+        header = next(r)
+    except StopIteration:
+        return [], []
     return list(r), header
 
 

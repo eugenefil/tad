@@ -1,7 +1,6 @@
 # TODO: tests
 # updated row with --> action tag
 # typed header
-# empty input
 # ignore context rows
 # break on schema row in diff
 # detect input format (csv, tsv)
@@ -124,7 +123,10 @@ tests = [
         ['update t set name = ? where id = ? and name = ?'],
         ['name', 'id', 'name'],
         ['pat', '3', 'sam']
-    ]
+    ],
+
+    'empty-input', [], [],
+    'empty-diff-input', [['@@', 'id', 'name']], []
 ]
 @pytest.mark.parametrize(
     'testid,in_rows,out_rows',
