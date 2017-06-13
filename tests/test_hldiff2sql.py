@@ -1,4 +1,5 @@
 # TODO: tests
+# wrong diff format
 # spaces in column names
 
 import subprocess
@@ -54,19 +55,23 @@ def run(args, input):
     return out, err
 
 
-def convert(input_rows, typed_header=False):
+def convert(input_rows, typed_header=False, delimiter=None):
+    csvargs = {'delimiter': delimiter} if delimiter else {}
+    delimiter_arg = ['-t'] if delimiter == '\t' else []
+
     f = StringIO()
-    csv.writer(f).writerows(input_rows)
+    csv.writer(f, **csvargs).writerows(input_rows)
     input = f.getvalue()
     
     cmd = (
         ['hldiff2sql'] +
-        (['-typed-header'] if typed_header else []) + 
+        (['-typed-header'] if typed_header else []) +
+        delimiter_arg +
         ['t']
     )
     
     out, err = run(cmd, input)
-    return list(csv.reader(StringIO(out)))
+    return list(csv.reader(StringIO(out), **csvargs))
 
 
 tests = [
@@ -215,3 +220,17 @@ def test_break_on_schema_change():
         ])
     assert excinfo.value.returncode == 1
     excinfo.match('Error: NotSupported')
+
+
+def test_tsv_input_output():
+    assert convert(
+        [
+            ['@@', 'id', 'name'],
+            ['+++', '1', 'john']
+        ],
+        delimiter='\t'
+    ) == [
+        ['insert into t (id, name) values (?, ?)'],
+        ['id', 'name'],
+        ['1', 'john']
+    ]

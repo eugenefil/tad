@@ -11,8 +11,9 @@ class Error(Exception):
         super().__init__(*args)
 
 
-def read_diff(file):
-    r = csv.reader(file)
+def read_diff(file, delimiter=None):
+    delim = {'delimiter': delimiter} if delimiter else {}
+    r = csv.reader(file, **delim)
     try:
         header = next(r)
     except StopIteration:
@@ -117,12 +118,13 @@ def insert_between(value, lst):
     return sum([[x, value] for x in lst[:-1]], []) + lst[-1:]
 
 
-def writerows(file, rows):
-    csv.writer(file).writerows(rows)
+def writerows(file, rows, delimiter=None):
+    delim = {'delimiter': delimiter} if delimiter else {}
+    csv.writer(file, **delim).writerows(rows)
 
 
-def main(table, typed_header=False):
-    diffrows, col_defs = read_diff(sys.stdin)
+def main(table, typed_header=False, delimiter=None):
+    diffrows, col_defs = read_diff(sys.stdin, delimiter=delimiter)
     col_defs = col_defs[1:] # remove action column
 
     colnames = col_defs
@@ -139,12 +141,12 @@ def main(table, typed_header=False):
     chunks = insert_between([[]], chunks)
     # concatenate chunks to produce list of rows
     out_rows = sum(chunks, [])
-    writerows(sys.stdout, out_rows)    
+    writerows(sys.stdout, out_rows, delimiter=delimiter)
 
 
 def setup():
     # Redefine stdin to not translate newlines. Otherwise when reading
-    # csv field containing \r\n on Windows it gets translated to \n,
+    # CSV field containing \r\n on Windows it gets translated to \n,
     # i.e. data gets corrupted. Always use utf-8.
     sys.stdin = open(
         sys.stdin.fileno(),
@@ -154,7 +156,7 @@ def setup():
         newline='',
         closefd=False
     )
-    # Redefine stdout to not translate newlines. csv module (as per
+    # Redefine stdout to not translate newlines. CSV module (as per
     # rfc 4180) writes \r\n. Otherwise when on Windows, \n is
     # translated to \r\n, so original \r\n becomes \r\r\n. Always use
     # utf-8.
@@ -178,10 +180,22 @@ def parse_args():
         help='input has typed header. Column type is separated from column name by space'
     )
     p.add_argument(
+        '-t',
+        action='store_true',
+        help='use tab as CSV delimiter'
+    )
+    p.set_defaults(delimiter=None)
+
+    p.add_argument(
         'table',
         help='target table'
     )
-    return p.parse_args()
+
+    args = p.parse_args()
+    if args.t:
+        args.delimiter = '\t'
+
+    return args
 
 
 if __name__ == '__main__':
@@ -189,5 +203,6 @@ if __name__ == '__main__':
     setup()
     main(
         args.table,
-        typed_header=args.typed_header
+        typed_header=args.typed_header,
+        delimiter=args.delimiter
     )
