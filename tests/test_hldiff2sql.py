@@ -1,6 +1,5 @@
 # TODO: tests
 # updated row with --> action tag
-# typed header
 # ignore context rows
 # break on schema row in diff
 # detect input format (csv, tsv)
@@ -59,10 +58,18 @@ def run(args, input):
     return out, err
 
 
-def convert(input_rows):
+def convert(input_rows, typed_header=False):
     f = StringIO()
     csv.writer(f).writerows(input_rows)
-    out, err = run(['hldiff2sql', 't'], input=f.getvalue())
+    input = f.getvalue()
+    
+    cmd = (
+        ['hldiff2sql'] +
+        (['-typed-header'] if typed_header else []) + 
+        ['t']
+    )
+    
+    out, err = run(cmd, input)
     return list(csv.reader(StringIO(out), delimiter='\t'))
 
 
@@ -135,3 +142,28 @@ tests = [
 )
 def test_convert(testid, in_rows, out_rows):
     assert convert(in_rows) == out_rows
+
+
+def test_input_with_typed_header():
+    assert convert(
+        [
+            # note: second column misses type
+            ['@@', 'id integer', 'name'],
+            ['+++', '1', 'john'],
+            ['---', '2', 'bill'],
+            ['->', '3', 'sam->pat']
+        ],
+        typed_header=True
+    ) == [
+        ['insert into t (id, name) values (?, ?)'],
+        ['id integer', 'name'],
+        ['1', 'john'],
+        [],
+        ['delete from t where id = ? and name = ?'],
+        ['id integer', 'name'],
+        ['2', 'bill'],
+        [],
+        ['update t set name = ? where id = ? and name = ?'],
+        ['name', 'id integer', 'name'],
+        ['pat', '3', 'sam']
+    ]

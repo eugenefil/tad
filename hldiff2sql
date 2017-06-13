@@ -22,15 +22,15 @@ def gen_insert_sql(table, cols):
     )
 
 
-def gen_insert_chunks(table, diffrows, cols):
+def gen_insert_chunks(table, diffrows, colnames, col_defs):
     inserted_rows = [
         row[1:]
         for row in filter(lambda r: r[0] == '+++', diffrows)
     ]
     if inserted_rows:
         return [
-            [[gen_insert_sql(table, cols)]] +
-            [cols] + 
+            [[gen_insert_sql(table, colnames)]] +
+            [col_defs] + 
             inserted_rows
         ]
     return []
@@ -43,15 +43,15 @@ def gen_delete_sql(table, cols):
     )
 
 
-def gen_delete_chunks(table, diffrows, cols):
+def gen_delete_chunks(table, diffrows, colnames, col_defs):
     deleted_rows = [
         row[1:]
         for row in filter(lambda r: r[0] == '---', diffrows)
     ]
     if deleted_rows:
         return [
-            [[gen_delete_sql(table, cols)]] +
-            [cols] +
+            [[gen_delete_sql(table, colnames)]] +
+            [col_defs] +
             deleted_rows
         ]
     return []
@@ -86,15 +86,16 @@ def get_update_items(updated_rows):
     return items
 
 
-def gen_update_chunks(table, diffrows, cols):
+def gen_update_chunks(table, diffrows, colnames, col_defs):
     updated_rows = filter(lambda r: r[0].endswith('->'), diffrows)
     items = get_update_items(updated_rows)
     updates = []
     for updated_col_indices, new_vals, orig_row in items:
-        updated_cols = [cols[i] for i in updated_col_indices]
+        updated_colnames = [colnames[i] for i in updated_col_indices]
+        updated_col_defs = [col_defs[i] for i in updated_col_indices]
         updates.append([
-            [gen_update_sql(table, cols, updated_cols)],
-            updated_cols + cols,
+            [gen_update_sql(table, colnames, updated_colnames)],
+            updated_col_defs + col_defs,
             new_vals + orig_row
         ])
     return updates
@@ -109,14 +110,18 @@ def writerows(file, rows):
     csv.writer(file, delimiter='\t').writerows(rows)
 
 
-def main(table):
-    diffrows, cols = readrows(sys.stdin)
-    cols = cols[1:] # remove action column from header
+def main(table, typed_header=False):
+    diffrows, col_defs = readrows(sys.stdin)
+    col_defs = col_defs[1:] # remove action column
+
+    colnames = col_defs
+    if typed_header:
+        colnames = [c.split(' ')[0] for c in col_defs]
 
     chunks = (
-        gen_insert_chunks(table, diffrows, cols) +
-        gen_delete_chunks(table, diffrows, cols) +
-        gen_update_chunks(table, diffrows, cols)
+        gen_insert_chunks(table, diffrows, colnames, col_defs) +
+        gen_delete_chunks(table, diffrows, colnames, col_defs) +
+        gen_update_chunks(table, diffrows, colnames, col_defs)
     )
     # insert empty rows between chunks, they will be output as empty
     # line separators
@@ -157,6 +162,11 @@ def parse_args():
         description='Convert highlighter diff to sql instructions to patch the table'
     )
     p.add_argument(
+        '-typed-header',
+        action='store_true',
+        help='input has typed header. Column type is separated from column name by space'
+    )
+    p.add_argument(
         'table',
         help='target table'
     )
@@ -166,4 +176,7 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     setup()
-    main(args.table)
+    main(
+        args.table,
+        typed_header=args.typed_header
+    )
