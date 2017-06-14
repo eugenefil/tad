@@ -41,7 +41,7 @@ def gen_insert_chunks(table, diffrows, colnames, col_defs):
     ]
     if inserted_rows:
         return [
-            [[gen_insert_sql(table, colnames)]] +
+            [gen_insert_sql(table, colnames)] +
             [col_defs] + 
             inserted_rows
         ]
@@ -62,7 +62,7 @@ def gen_delete_chunks(table, diffrows, colnames, col_defs):
     ]
     if deleted_rows:
         return [
-            [[gen_delete_sql(table, colnames)]] +
+            [gen_delete_sql(table, colnames)] +
             [col_defs] +
             deleted_rows
         ]
@@ -106,7 +106,7 @@ def gen_update_chunks(table, diffrows, colnames, col_defs):
         updated_colnames = [colnames[i] for i in updated_col_indices]
         updated_col_defs = [col_defs[i] for i in updated_col_indices]
         updates.append([
-            [gen_update_sql(table, colnames, updated_colnames)],
+            gen_update_sql(table, colnames, updated_colnames),
             updated_col_defs + col_defs,
             new_vals + orig_row
         ])
@@ -136,12 +136,15 @@ def main(table, typed_header=False, delimiter=None):
         gen_delete_chunks(table, diffrows, colnames, col_defs) +
         gen_update_chunks(table, diffrows, colnames, col_defs)
     )
-    # insert empty rows between chunks, they will be output as empty
-    # line separators
-    chunks = insert_between([[]], chunks)
-    # concatenate chunks to produce list of rows
-    out_rows = sum(chunks, [])
-    writerows(sys.stdout, out_rows, delimiter=delimiter)
+    # insert empty lines between chunks as separators
+    chunks = insert_between([''], chunks)
+    
+    for chunk in chunks:
+        query = chunk[0] # query or empty line separator
+        print(query)
+
+        valuerows = chunk[1:]
+        writerows(sys.stdout, valuerows, delimiter=delimiter)
 
 
 def setup():

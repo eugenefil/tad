@@ -55,7 +55,16 @@ def run(args, input):
     return out, err
 
 
-def convert(input_rows, typed_header=False, delimiter=None):
+def convert(input_rows, typed_header=False, delimiter='\t'):
+    """Convert diff rows to sql instructions with hldiff2sql.
+
+    If typed_header is True, tell hldiff2sql that input has typed
+    header.
+
+    Use delimiter as CSV delimiter. Tab is used by default, since this
+    allows to parse whole output from hldiff2sql into a list with csv
+    without breaking queries into parts on commas.
+    """
     csvargs = {'delimiter': delimiter} if delimiter else {}
     delimiter_arg = ['-t'] if delimiter == '\t' else []
 
@@ -222,15 +231,17 @@ def test_break_on_schema_change():
     excinfo.match('Error: NotSupported')
 
 
-def test_tsv_input_output():
+def test_csv_input_output():
     assert convert(
         [
             ['@@', 'id', 'name'],
             ['+++', '1', 'john']
         ],
-        delimiter='\t'
+        delimiter=','
     ) == [
-        ['insert into t (id, name) values (?, ?)'],
+        # note: query is broken into parts since we parse all output
+        # from hldiff2sql with csv for simplicity, not just data bits
+        ['insert into t (id', ' name) values (?', ' ?)'],
         ['id', 'name'],
         ['1', 'john']
     ]
