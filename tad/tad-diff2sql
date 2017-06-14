@@ -175,7 +175,7 @@ def setup():
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description='Convert highlighter diff to sql instructions to patch the table'
+        description='Convert highlighter diff to SQL statements to patch the table'
     )
     p.add_argument(
         '-typed-header',

@@ -11,9 +11,10 @@ import os.path as path
 import pytest
 
 
-# add path to hldiff2sql to PATH
+# add path to diff2sql to PATH
+rootdir = pytest.config.rootdir
 os.environ['PATH'] = (
-    path.dirname(path.dirname(__file__)) + ':' + os.environ['PATH']
+    str(rootdir.join('tad')) + ':' + os.environ['PATH']
 )
 
 
@@ -56,13 +57,13 @@ def run(args, input):
 
 
 def convert(input_rows, typed_header=False, delimiter='\t'):
-    """Convert diff rows to sql instructions with hldiff2sql.
+    """Convert diff rows to SQL statements with diff2sql.
 
-    If typed_header is True, tell hldiff2sql that input has typed
+    If typed_header is True, tell diff2sql that input has typed
     header.
 
     Use delimiter as CSV delimiter. Tab is used by default, since this
-    allows to parse whole output from hldiff2sql into a list with csv
+    allows to parse whole output from diff2sql into a list with csv
     without breaking queries into parts on commas.
     """
     csvargs = {'delimiter': delimiter} if delimiter else {}
@@ -73,7 +74,7 @@ def convert(input_rows, typed_header=False, delimiter='\t'):
     input = f.getvalue()
     
     cmd = (
-        ['hldiff2sql'] +
+        ['tad-diff2sql'] +
         (['-typed-header'] if typed_header else []) +
         delimiter_arg +
         ['t']
@@ -240,7 +241,7 @@ def test_csv_input_output():
         delimiter=','
     ) == [
         # note: query is broken into parts since we parse all output
-        # from hldiff2sql with csv for simplicity, not just data bits
+        # from diff2sql with csv for simplicity, not just data bits
         ['insert into t (id', ' name) values (?', ' ?)'],
         ['id', 'name'],
         ['1', 'john']
