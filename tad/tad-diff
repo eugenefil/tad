@@ -48,7 +48,10 @@ def parse_args():
         nargs='?',
         help='table from the second database or an SQL SELECT query retrieving data from it'
     )
-    return p.parse_args()
+
+    args = p.parse_args()
+    args.table2 = args.table2 or args.table1
+    return args
 
 
 if __name__ == '__main__':

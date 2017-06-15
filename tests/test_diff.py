@@ -1,7 +1,4 @@
 # TODO: tests
-# two sources: tables
-# one source: query
-# one source: table
 # typed header
 
 import subprocess
@@ -85,7 +82,8 @@ def diff(db1dir, db2dir, table1, table2=None):
 def tmpdb(tmpdir):
     """Create two temp databases for diffing.
 
-    Copy test database to temp directory subdirs db1 and db2.
+    Copy test database to temp directory subdirs db1 and db2. Make all
+    tables of db1 empty.
 
     chdir to temp directory, chdir back on teardown. We have to do this
     to keep paths relative, because adosql is a Windows program, but
@@ -96,34 +94,23 @@ def tmpdb(tmpdir):
     shutil.copytree(origdbdir, tmpdir.join('db1'))
     shutil.copytree(origdbdir, tmpdir.join('db2'))
     with tmpdir.as_cwd():
+        # make all tables of db1 empty
+        shutil.copy('db1/empty.dbf', 'db1/full.dbf')
         yield None
 
 
-def test_two_query_sources(tmpdb):
-    assert diff(
-        'db1',
-        'db2',
-        'select * from empty',
-        'select * from full'
-    ) == [
+@pytest.mark.parametrize(
+    'testid,table1,table2',
+    [
+        ('two-queries', 'select * from empty', 'select * from full'),
+        ('two-tables', 'empty', 'full'),
+        # table `full' is empty in db1
+        ('same-query', 'select * from full', None),
+        ('same-table', 'full', None)
+    ]
+)
+def test_diff(testid, table1, table2, tmpdb):
+    assert diff('db1', 'db2', table1, table2) == [
         ['@@', 'id', 'name'],
         ['+++', '1', 'john']
     ]
-
-    # assert diff(
-    #     'db1',
-    #     'db2',
-    #     'empty',
-    #     'full'
-    # ) == [
-    #     ['@@', 'id', 'name'],
-    #     ['+++', '1', 'john']
-    # ]
-
-    # assert diff(
-    #     'db1',
-    #     'db2',
-    #     'select * from full'
-    # ) == [['@@', 'id', 'name']]
-
-    # assert diff('db1', 'db2', 'full') == [['@@', 'id', 'name']]
