@@ -117,8 +117,22 @@ def test_diff(testid, table1, table2, tmpdb):
     ]
 
 
-def test_typed_header(tmpdb):
+def test_output_typed_header(tmpdb):
     assert diff('db1', 'db2', 'empty', 'full', typed_header=True) == [
         ['@@', 'id integer', 'name string'],
         ['+++', '1', 'john']
+    ]
+
+
+def test_input_output_utf8(tmpdb):
+    assert diff('db1', 'db2', "select 'хай' as text from full") == [
+        ['@@', 'text'],
+        ['+++', 'хай']
+    ]
+
+
+def test_input_output_crlf(tmpdb):
+    assert diff('db1', 'db2', "select chr(13) + chr(10) as text from full") == [
+        ['@@', 'text'],
+        ['+++', '\r\n']
     ]
