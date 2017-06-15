@@ -161,6 +161,11 @@ def test_convert(testid, in_rows, out_rows):
 
 
 def test_input_with_typed_header():
+    """Test passing diff with typed columns.
+
+    Column names in generated queries must be stripped off types.
+    Columns with missing types must not produce error.
+    """
     assert convert(
         [
             # note: second column misses type
