@@ -6,22 +6,26 @@ import tempfile
 import os
 
 
-def getdatafile(db, query):
-    """Exeecute query, save results to temp csv file, return its path"""
-    fd, filepath = tempfile.mkstemp(suffix='.csv')
-    p = subprocess.Popen(
-        ['adosql', 'vfp', db],
-        stdin=subprocess.PIPE,
-        stdout=fd
+def getdatafile(db, query, typed_header=False):
+    """Exeecute query, save results to temp csv file, return its path.
+
+    If typed_header is True, tell adosql to return typed header.
+    """
+    cmd = (
+        ['adosql'] +
+        (['-typed-header'] if typed_header else []) +
+        ['vfp', db]
     )
+    fd, filepath = tempfile.mkstemp(suffix='.csv')
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=fd)
     p.communicate(input=query.encode('utf-8'))
     os.close(fd)
     return filepath
 
 
-def main(db1, db2, query1, query2):
-    file1 = getdatafile(db1, query1)
-    file2 = getdatafile(db2, query2)
+def main(db1, db2, query1, query2, typed_header=False):
+    file1 = getdatafile(db1, query1, typed_header=typed_header)
+    file2 = getdatafile(db2, query2, typed_header=typed_header)
     subprocess.call(['daff', file1, file2])
     os.remove(file1)
     os.remove(file2)
@@ -30,6 +34,11 @@ def main(db1, db2, query1, query2):
 def parse_args():
     p = argparse.ArgumentParser(
         description='Compare two database tables and print differences between them in highlighter diff format'
+    )
+    p.add_argument(
+        '-typed-header',
+        action='store_true',
+        help='output typed header. Each column will contain its type delimited from name by space'
     )
     p.add_argument(
         'db1',
@@ -56,4 +65,10 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    main(args.db1, args.db2, args.table1, args.table2)
+    main(
+        args.db1,
+        args.db2,
+        args.table1,
+        args.table2,
+        typed_header=args.typed_header
+    )

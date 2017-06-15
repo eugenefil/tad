@@ -1,6 +1,3 @@
-# TODO: tests
-# typed header
-
 import subprocess
 import csv
 from io import StringIO
@@ -64,11 +61,15 @@ def run(args, input=None):
     return out, err
 
 
-def diff(db1dir, db2dir, table1, table2=None):
-    """Diff two tables and return captured diff parsed with csv."""
+def diff(db1dir, db2dir, table1, table2=None, typed_header=False):
+    """Diff two tables and return captured diff parsed with csv.
+
+    If typed_header is True, tad-diff must return typed header.
+    """
     dbname = path.basename(DBPATH)
     cmd = (
         ['tad-diff'] +
+        (['-typed-header'] if typed_header else []) +
         [path.join(dbdir, dbname) for dbdir in [db1dir, db2dir]] +
         [table1] +
         ([table2] if table2 else [])
@@ -112,5 +113,12 @@ def tmpdb(tmpdir):
 def test_diff(testid, table1, table2, tmpdb):
     assert diff('db1', 'db2', table1, table2) == [
         ['@@', 'id', 'name'],
+        ['+++', '1', 'john']
+    ]
+
+
+def test_typed_header(tmpdb):
+    assert diff('db1', 'db2', 'empty', 'full', typed_header=True) == [
+        ['@@', 'id integer', 'name string'],
         ['+++', '1', 'john']
     ]
