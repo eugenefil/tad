@@ -70,3 +70,21 @@ def test_no_changes_with_empty_diff(tmpdb):
 
     # no diff at all
     assert patch(tmpdb, 'empty', [])[1:] == []
+
+
+def test_utf8_diff(tmpdb):
+    assert patch(tmpdb, 'empty', [
+        ['@@', 'id integer', 'name string'],
+        ['+++', '1', 'Васисуалий']
+    ])[1:] == [
+        ['1', 'Васисуалий']
+    ]
+
+
+def test_diff_with_crlf(tmpdb):
+    assert patch(tmpdb, 'empty', [
+        ['@@', 'id integer', 'name string'],
+        ['+++', '1', '\r\n']
+    ])[1:] == [
+        ['1', '\r\n']
+    ]
