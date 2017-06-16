@@ -1,0 +1,67 @@
+#!/usr/bin/env python3
+
+import argparse
+import subprocess
+import sys
+
+
+def main(srcdb, destdb, src_query, dest_query, target_table):
+    diff = subprocess.Popen(
+        [
+            'tad-diff',
+            '-typed-header',
+            destdb,
+            srcdb,
+            dest_query,
+            src_query
+        ],
+        stdout=subprocess.PIPE
+    )
+    patch = subprocess.Popen(
+        ['tad-patch', destdb, target_table],
+        stdin=diff.stdout
+    )
+    # force flush to let writer receive SIGPIPE if reader dies while
+    # writer is waiting with filled buffer, otherwise writer will wait
+    # forever
+    diff.stdout.close()
+    return patch.wait()
+
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description='Compare source and destination database tables, then update destination to match source. Tables may be specified as SQL queries'
+    )
+    p.add_argument(
+        'src_db',
+        help='path to source database'
+    )
+    p.add_argument(
+        'dest_db',
+        help='path to destination database'
+    )
+    p.add_argument(
+        'src_table',
+        help='table in the source database or an SQL query retrieving data set from it'
+    )
+    p.add_argument(
+        'dest_table',
+        nargs='?',
+        help='table in the destination database or an SQL query retrieving data set from it. If omitted dest_table is assumed the same as src_table'
+    )
+    p.add_argument(
+        '-target-table',
+        help='table in the destination database to update. Used when dest_table is a query'
+    )
+    return p.parse_args()
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    sys.exit(main(
+        args.src_db,
+        args.dest_db,
+        args.src_table,
+        args.dest_table,
+        args.target_table
+    ))
