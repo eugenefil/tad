@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+
+import argparse
+import subprocess
+import sys
+
+
+def main(db, table):
+    diff2sql = subprocess.Popen(
+        ['tad-diff2sql', '-typed-header', table],
+        stdout=subprocess.PIPE
+    )
+    sqlutil = subprocess.Popen(
+        ['adosql', '-paramstyle', 'qmark', 'vfp', db],
+        stdin=diff2sql.stdout
+    )
+    # force flush to let writer receive SIGPIPE if reader dies while
+    # writer is waiting with filled buffer, otherwise writer will wait
+    # forever
+    diff2sql.stdout.close()
+    return sqlutil.wait()
+
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description='Read diff in highlighter diff format and patch database table'
+    )
+    p.add_argument(
+        'db',
+        help='path to database'
+    )
+    p.add_argument(
+        'table',
+        help='name of database table'
+    )
+    return p.parse_args()
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    sys.exit(main(args.db, args.table))
