@@ -47,8 +47,8 @@ def run(args, input=None):
 
 
 def adosql(
-        sql,
         db,
+        sql,
         input_rows=None,
         typed_header=False,
         delimiter=None,

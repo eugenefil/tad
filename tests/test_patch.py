@@ -48,7 +48,7 @@ def patch(db, table, diffrows):
     diff = f.getvalue()
 
     run(['tad-patch', db, table], input=diff)
-    return adosql('select * from ' + table, db)
+    return adosql(db, 'select * from ' + table)
 
 
 tests = [

@@ -27,8 +27,8 @@ def sync(srcdb, destdb, src_table, dest_table=None, target_table=None):
     )
     run(cmd)
     return (
-        adosql(src_table, srcdb)[1:],
-        adosql(dest_table, destdb)[1:]
+        adosql(srcdb, src_table)[1:],
+        adosql(destdb, dest_table)[1:]
     )
 
 
