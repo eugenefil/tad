@@ -1,5 +1,4 @@
 # TODO tests:
-# empty diff produces no changes
 # diff2sql dies in the middle producing unfinished but correct input
 #   to adosql (must be very rare), adosql could wait for EOF text marker
 
@@ -61,3 +60,13 @@ def test_patch(tmpdb):
     ])[1:] == [
         ['2', 'bill']
     ]
+
+
+def test_no_changes_with_empty_diff(tmpdb):
+    # diff with no changes
+    assert patch(tmpdb, 'empty', [
+        ['@@', 'id', 'name']
+    ])[1:] == []
+
+    # no diff at all
+    assert patch(tmpdb, 'empty', [])[1:] == []
