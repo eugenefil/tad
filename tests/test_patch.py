@@ -51,40 +51,49 @@ def patch(db, table, diffrows):
     return adosql('select * from ' + table, db)
 
 
-def test_patch(tmpdb):
-    assert patch(tmpdb, 'full', [
-        # note: second column misses type
+tests = [
+    'basic-patch',
+    'full',
+    [
+        # note: second column misses type, missing types in
+        # typed header mode should work ok
         ['@@', 'id integer', 'name'],
         ['---', '1', 'john'],
         ['+++', '2', 'bill']
-    ])[1:] == [
-        ['2', 'bill']
-    ]
+    ],
+    [['2', 'bill']],
 
 
-def test_no_changes_with_empty_diff(tmpdb):
-    # diff with no changes
-    assert patch(tmpdb, 'empty', [
-        ['@@', 'id', 'name']
-    ])[1:] == []
-
-    # no diff at all
-    assert patch(tmpdb, 'empty', [])[1:] == []
+    'diff-with-no-changes',
+    'empty',
+    [['@@', 'id', 'name']],
+    [],
 
 
-def test_utf8_diff(tmpdb):
-    assert patch(tmpdb, 'empty', [
+    'empty-input', 'empty', [], [],
+
+
+    'utf8-diff',
+    'empty',
+    [
         ['@@', 'id integer', 'name string'],
         ['+++', '1', 'Васисуалий']
-    ])[1:] == [
-        ['1', 'Васисуалий']
-    ]
+    ],
+    [['1', 'Васисуалий']],
 
 
-def test_diff_with_crlf(tmpdb):
-    assert patch(tmpdb, 'empty', [
+    'diff-with-crlf',
+    'empty',
+    [
         ['@@', 'id integer', 'name string'],
         ['+++', '1', '\r\n']
-    ])[1:] == [
-        ['1', '\r\n']
-    ]
+    ],
+    [['1', '\r\n']]
+]
+@pytest.mark.parametrize(
+    'testid,table,diffrows,resultrows',
+    # split tests into 4-tuples
+    [tests[i:i + 4] for i in range(0, len(tests), 4)]
+)
+def test_patch(testid, table, diffrows, resultrows, tmpdb):
+    assert patch(tmpdb, table, diffrows)[1:] == resultrows
