@@ -33,7 +33,7 @@ def main(db1, db2, query1, query2, typed_header=False):
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description='Compare two database tables and print differences between them in highlighter diff format'
+        description='Compare two database tables and print differences between them in highlighter diff format. Tables may be specified as SQL queries'
     )
     p.add_argument(
         '-typed-header',
@@ -50,12 +50,12 @@ def parse_args():
     )
     p.add_argument(
         'table1',
-        help='table from the first database or an SQL SELECT query retrieving data from it'
+        help='table in the first database or an SQL query retrieving data set from it'
     )
     p.add_argument(
         'table2',
         nargs='?',
-        help='table from the second database or an SQL SELECT query retrieving data from it'
+        help='table in the second database or an SQL query retrieving data set from it. If omitted table2 is assumed the same as table1'
     )
 
     args = p.parse_args()
