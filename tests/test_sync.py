@@ -21,14 +21,14 @@ def sync(srcdb, destdb, src_table, dest_table=None, target_table=None):
     """Sync two database tables and return their rows for comparison."""
     cmd = (
         ['tad-sync'] +
-        (['-t', target_table] if target_table else []) +
+        (['-target-table', target_table] if target_table else []) +
         [srcdb, destdb, src_table] +
         ([dest_table] if dest_table else [])
     )
     run(cmd)
     return (
         adosql(srcdb, src_table)[1:],
-        adosql(destdb, dest_table)[1:]
+        adosql(destdb, dest_table or src_table)[1:]
     )
 
 
@@ -55,13 +55,27 @@ def tmpdbs(tmpdir):
         yield [path.join(dir, dbname) for dir in ['src', 'dest']]
 
 
-def test_sync(tmpdbs):
+@pytest.mark.parametrize(
+    'testid,src_table,dest_table,target_table',
+    [
+        (
+            'two-queries',
+            'select * from full',
+            'select * from empty',
+            'empty'
+        ),
+        ('two-tables', 'full', 'empty', None),
+        ('same-query', 'select * from full', None, 'full'),
+        ('same-table', 'full', None, None)
+    ]
+)        
+def test_sync(testid, src_table, dest_table, target_table, tmpdbs):
     srcdb, destdb = tmpdbs
     srcrows, destrows = sync(
         srcdb,
         destdb,
-        'select * from full',
-        'select * from empty',
-        target_table = 'empty'
+        src_table,
+        dest_table,
+        target_table
     )
     assert srcrows == destrows == [['1', 'john']]
