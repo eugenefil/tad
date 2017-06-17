@@ -19,15 +19,26 @@ os.environ['PATH'] = (
 )
 
 
-def diff(db1dir, db2dir, table1, table2=None, typed_header=False):
+def diff(
+        db1dir,
+        db2dir,
+        table1,
+        table2=None,
+        typed_header=False,
+        key=None
+    ):
     """Diff two tables and return captured diff parsed with csv.
 
     If typed_header is True, tad-diff must return typed header.
+  
+    If not None, key must be a string of comma-separated column names
+    to use as key when comparing.
     """
     dbname = path.basename(DBPATH)
     cmd = (
         ['tad-diff'] +
         (['-typed-header'] if typed_header else []) +
+        (['-key', key] if key else []) +
         [path.join(dbdir, dbname) for dbdir in [db1dir, db2dir]] +
         [table1] +
         ([table2] if table2 else [])
@@ -93,4 +104,30 @@ def test_input_output_crlf(tmpdb):
     assert diff('db1', 'db2', "select chr(13) + chr(10) as text from full") == [
         ['@@', 'text'],
         ['+++', '\r\n']
+    ]
+
+
+def test_diff_with_key(tmpdb):
+    assert diff(
+        'db2',
+        'db2',
+        "select 1 id, 'john' name from full",
+        "select 2 id, 'john' name from full",
+        key='id'
+    )[1:] == [
+        ['+++', '2.0', 'john'],
+        ['---', '1.0', 'john']
+    ]
+
+
+def test_diff_with_multicolumn_key(tmpdb):
+    assert diff(
+        'db2',
+        'db2',
+        "select 'john' name, '123' tel, 'dev' job from full",
+        "select 'john' name, '456' tel, 'tester' job from full",
+        key='name,tel'
+    )[1:] == [
+        ['+++', 'john', '456', 'tester'],
+        ['---', 'john', '123', 'dev']
     ]

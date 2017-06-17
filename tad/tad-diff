@@ -23,10 +23,15 @@ def getdatafile(db, query, typed_header=False):
     return filepath
 
 
-def main(db1, db2, query1, query2, typed_header=False):
+def main(db1, db2, query1, query2, typed_header=False, keycols=[]):
     file1 = getdatafile(db1, query1, typed_header=typed_header)
     file2 = getdatafile(db2, query2, typed_header=typed_header)
-    subprocess.call(['daff', file1, file2])
+    subprocess.call(
+        ['daff', 'diff'] +
+        ['--all-columns'] + # do not prune unchanged columns
+        sum([['--id', col] for col in keycols], []) +
+        [file1, file2]
+    )
     os.remove(file1)
     os.remove(file2)
 
@@ -39,6 +44,12 @@ def parse_args():
         '-typed-header',
         action='store_true',
         help='output typed header. Each column will contain its type delimited from name by space'
+    )
+    p.add_argument(
+        '-key',
+        default=[],
+        type=lambda s: s.split(','),
+        help='comma-separated list of column names to use as a key when comparing tables'
     )
     p.add_argument(
         'db1',
@@ -70,5 +81,6 @@ if __name__ == '__main__':
         args.db2,
         args.table1,
         args.table2,
-        typed_header=args.typed_header
+        typed_header=args.typed_header,
+        keycols=args.key
     )
