@@ -21,9 +21,29 @@ def read_diff(file, delimiter=None):
 
     # break on schema changes
     if header[0] == '!':
-        raise Error('NotSupported: input diff contains schema row, but schema changes are not supported')
+        raise Error('input diff contains schema row, but schema changes are not supported')
 
     return list(r), header
+
+
+def get_keycol_selector(header, keycols):
+    """Return a function that selects key columns from an input row.
+
+    Throw Error if key column name from keycols cannot be found in
+    header.
+    """
+    # all columns serve as a key if no key was specified
+    if not keycols:
+        return lambda row: row
+
+    keycol_indices = []
+    for col in keycols:
+        try:
+            keycol_indices.append(header.index(col))
+        except ValueError:
+            raise Error('key column %s was not found in header' % col)
+        
+    return lambda row: [row[i] for i in keycol_indices]
 
 
 def gen_insert_sql(table, cols):
@@ -34,7 +54,13 @@ def gen_insert_sql(table, cols):
     )
 
 
-def gen_insert_chunks(table, diffrows, colnames, col_defs):
+def gen_insert_chunks(
+        table,
+        diffrows,
+        colnames,
+        col_defs,
+        keycol_selector
+    ):
     inserted_rows = [
         row[1:]
         for row in filter(lambda r: r[0] == '+++', diffrows)
@@ -48,32 +74,38 @@ def gen_insert_chunks(table, diffrows, colnames, col_defs):
     return []
 
 
-def gen_delete_sql(table, cols):
+def gen_delete_sql(table, keycols):
     return 'delete from {table} where {filters}'.format(
         table=table,
-        filters=' and '.join([c + ' = ?' for c in cols])
+        filters=' and '.join([c + ' = ?' for c in keycols])
     )
+        
 
-
-def gen_delete_chunks(table, diffrows, colnames, col_defs):
+def gen_delete_chunks(
+        table,
+        diffrows,
+        colnames,
+        col_defs,
+        keycol_selector
+    ):
     deleted_rows = [
-        row[1:]
+        keycol_selector(row[1:])
         for row in filter(lambda r: r[0] == '---', diffrows)
     ]
     if deleted_rows:
         return [
-            [gen_delete_sql(table, colnames)] +
-            [col_defs] +
+            [gen_delete_sql(table, keycol_selector(colnames))] +
+            [keycol_selector(col_defs)] +
             deleted_rows
         ]
     return []
 
 
-def gen_update_sql(table, cols, updated_cols):
+def gen_update_sql(table, updated_cols, keycols):
     return 'update {table} set {setters} where {filters}'.format(
         table=table,
         setters=', '.join([c + ' = ?' for c in updated_cols]),
-        filters=' and '.join([c + ' = ?' for c in cols])
+        filters=' and '.join([c + ' = ?' for c in keycols])
     )
 
 
@@ -98,17 +130,27 @@ def get_update_items(updated_rows):
     return items
 
 
-def gen_update_chunks(table, diffrows, colnames, col_defs):
+def gen_update_chunks(
+        table,
+        diffrows,
+        colnames,
+        col_defs,
+        keycol_selector
+    ):
     updated_rows = filter(lambda r: r[0].endswith('->'), diffrows)
     items = get_update_items(updated_rows)
+
+    keycols = keycol_selector(colnames)
+    keycol_defs = keycol_selector(col_defs)
+
     updates = []
     for updated_col_indices, new_vals, orig_row in items:
         updated_colnames = [colnames[i] for i in updated_col_indices]
         updated_col_defs = [col_defs[i] for i in updated_col_indices]
         updates.append([
-            gen_update_sql(table, colnames, updated_colnames),
-            updated_col_defs + col_defs,
-            new_vals + orig_row
+            gen_update_sql(table, updated_colnames, keycols),
+            updated_col_defs + keycol_defs,
+            new_vals + keycol_selector(orig_row)
         ])
     return updates
 
@@ -123,18 +165,25 @@ def writerows(file, rows, delimiter=None):
     csv.writer(file, **delim).writerows(rows)
 
 
-def main(table, typed_header=False, delimiter=None):
+def main(table, typed_header=False, delimiter=None, keycols=[]):
     diffrows, col_defs = read_diff(sys.stdin, delimiter=delimiter)
     col_defs = col_defs[1:] # remove action column
 
     colnames = col_defs
     if typed_header:
         colnames = [c.split(' ')[0] for c in col_defs]
+    keycol_selector = get_keycol_selector(colnames, keycols)
 
-    chunks = (
-        gen_insert_chunks(table, diffrows, colnames, col_defs) +
-        gen_delete_chunks(table, diffrows, colnames, col_defs) +
-        gen_update_chunks(table, diffrows, colnames, col_defs)
+    chunks = sum(
+        [
+            f(table, diffrows, colnames, col_defs, keycol_selector)
+            for f in [
+                gen_insert_chunks,
+                gen_delete_chunks,
+                gen_update_chunks
+            ]
+        ],
+        []
     )
     # insert empty lines between chunks as separators
     chunks = insert_between([''], chunks)
@@ -183,6 +232,12 @@ def parse_args():
         help='input has typed header. Column type is separated from column name by space'
     )
     p.add_argument(
+        '-key',
+        default=[],
+        type=lambda s: s.split(','),
+        help='comma-separated list of column names to use as a key when building queries'
+    )
+    p.add_argument(
         '-t',
         action='store_true',
         help='use tab as CSV delimiter'
@@ -207,5 +262,6 @@ if __name__ == '__main__':
     main(
         args.table,
         typed_header=args.typed_header,
-        delimiter=args.delimiter
+        delimiter=args.delimiter,
+        keycols=args.key
     )

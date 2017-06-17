@@ -19,7 +19,7 @@ os.environ['PATH'] = (
 )
 
 
-def convert(input_rows, typed_header=False, delimiter='\t'):
+def convert(input_rows, typed_header=False, delimiter='\t', key=None):
     """Convert diff rows to SQL statements with diff2sql.
 
     If typed_header is True, tell diff2sql that input has typed
@@ -28,6 +28,9 @@ def convert(input_rows, typed_header=False, delimiter='\t'):
     Use delimiter as CSV delimiter. Tab is used by default, since this
     allows to parse whole output from diff2sql into a list with csv
     without breaking queries into parts on commas.
+
+    If not None, key must be a string of comma-separated column names
+    to use as key when building queries.
     """
     csvargs = {'delimiter': delimiter} if delimiter else {}
     delimiter_arg = ['-t'] if delimiter == '\t' else []
@@ -39,6 +42,7 @@ def convert(input_rows, typed_header=False, delimiter='\t'):
     cmd = (
         ['tad-diff2sql'] +
         (['-typed-header'] if typed_header else []) +
+        (['-key', key] if key else []) +
         delimiter_arg +
         ['t']
     )
@@ -197,7 +201,7 @@ def test_break_on_schema_change():
             ['@@', 'id', 'name']
         ])
     assert excinfo.value.returncode == 1
-    excinfo.match('Error: NotSupported')
+    excinfo.match('schema changes are not supported')
 
 
 def test_csv_input_output():
@@ -213,4 +217,54 @@ def test_csv_input_output():
         ['insert into t (id', ' name) values (?', ' ?)'],
         ['id', 'name'],
         ['1', 'john']
+    ]
+
+
+def test_use_table_key():
+    """Test using key when building queries.
+
+    INSERT must stay the same, while DELETE and UPDATE must use only key
+    fields in the filter.
+    """
+    assert convert(
+        [
+            ['@@', 'id integer', 'name'],
+            ['+++', '1', 'john'],
+            ['---', '2', 'bill'],
+            ['->', '3', 'sam->pat']
+        ],
+        typed_header=True,
+        key='id'
+    ) == [
+        ['insert into t (id, name) values (?, ?)'],
+        ['id integer', 'name'],
+        ['1', 'john'],
+        [],
+        ['delete from t where id = ?'],
+        ['id integer'],
+        ['2'],
+        [],
+        ['update t set name = ? where id = ?'],
+        ['name', 'id integer'],
+        ['pat', '3']
+    ]
+
+
+def test_use_multicolumn_table_key():
+    assert convert(
+        [
+            ['@@', 'name', 'tel', 'job'],
+            ['---', 'john', '123', 'dev'],
+            ['->', 'bill', '345', 'test->sales']
+        ],
+        typed_header=True,
+        key='name,tel'
+    ) == [
+        ['delete from t where name = ? and tel = ?'],
+        ['name', 'tel'],
+        ['john', '123'],
+        [],
+        ['update t set job = ? where name = ? and tel = ?'],
+        ['job', 'name', 'tel'],
+        ['sales', 'bill', '345']
     ]
