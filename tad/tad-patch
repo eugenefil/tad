@@ -5,9 +5,11 @@ import subprocess
 import sys
 
 
-def main(db, table):
+def main(db, table, key=None):
     diff2sql = subprocess.Popen(
-        ['tad-diff2sql', '-typed-header', table],
+        ['tad-diff2sql', '-typed-header'] +
+        (['-key', key] if key else []) +
+        [table],
         stdout=subprocess.PIPE
     )
     sqlutil = subprocess.Popen(
@@ -26,6 +28,10 @@ def parse_args():
         description='Read diff in highlighter diff format and patch database table'
     )
     p.add_argument(
+        '-key',
+        help='comma-separated list of column names to use as a key when building DELETE and UPDATE queries to patch the table'
+    )
+    p.add_argument(
         'db',
         help='path to database'
     )
@@ -38,4 +44,4 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    sys.exit(main(args.db, args.table))
+    sys.exit(main(args.db, args.table, args.key))

@@ -41,16 +41,30 @@ def tmpdb(tmpdir):
         yield path.join(DBDIR, dbname)
 
 
-def patch(db, table, diffrows):
-    """Patch database table with diffrows and return its rows."""
+def patch(db, table, diffrows, key=None):
+    """Patch database table with diffrows and return its rows.
+
+    If not None, key must be a string of comma-separated column names
+    to use as key when building queries.
+    """
     f = StringIO()
     csv.writer(f).writerows(diffrows)
     diff = f.getvalue()
 
-    run(['tad-patch', db, table], input=diff)
+    cmd = (
+        ['tad-patch'] +
+        (['-key', key] if key else []) +
+        [db, table]
+    )
+
+    run(cmd, input=diff)
     return adosql(db, 'select * from ' + table)
 
 
+# With tad-patch we don't test that it issues right queries
+# (e.g. deletes chosen rows and keeps other intact). That is the job
+# of tad-diff2sql. Instead we test that feeding it a diff results in
+# database changes, i.e. that tying tad-diff2sql with adosql works.
 tests = [
     'basic-patch',
     'full',
@@ -97,3 +111,19 @@ tests = [
 )
 def test_patch(testid, table, diffrows, resultrows, tmpdb):
     assert patch(tmpdb, table, diffrows)[1:] == resultrows
+
+
+def test_use_table_key(tmpdb):
+    # insert second row with the same key, so that deleting by key
+    # deletes all rows, but deleting with all columns as key deletes
+    # only one row
+    adosql(tmpdb, "insert into full values (1, 'bill')")
+    assert patch(
+        tmpdb,
+        'full',
+        [
+            ['@@', 'id integer', 'name'],
+            ['---', '1', 'john']
+        ],
+        key='id'
+    )[1:] == []
