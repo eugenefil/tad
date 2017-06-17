@@ -5,20 +5,17 @@ import subprocess
 import sys
 
 
-def main(srcdb, destdb, src_query, dest_query, target_table):
+def main(srcdb, destdb, src_table, dest_table, target_table, key=None):
     diff = subprocess.Popen(
-        [
-            'tad-diff',
-            '-typed-header',
-            destdb,
-            srcdb,
-            dest_query,
-            src_query
-        ],
+        ['tad-diff', '-typed-header'] +
+        (['-key', key] if key else []) +
+        [destdb, srcdb, dest_table, src_table],
         stdout=subprocess.PIPE
     )
     patch = subprocess.Popen(
-        ['tad-patch', destdb, target_table],
+        ['tad-patch'] +
+        (['-key', key] if key else []) +
+        [destdb, target_table],
         stdin=diff.stdout
     )
     # force flush to let writer receive SIGPIPE if reader dies while
@@ -30,7 +27,11 @@ def main(srcdb, destdb, src_query, dest_query, target_table):
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description='Compare source and destination database tables, then update destination to match source. Tables may be specified as SQL queries'
+        description='Diff source and destination database tables, then patch destination to match source. Tables may be specified as SQL queries'
+    )
+    p.add_argument(
+        '-key',
+        help='comma-separated list of column names to use as a key when diffing and while building DELETE and UPDATE queries when patching'
     )
     p.add_argument(
         'src_db',
@@ -42,16 +43,16 @@ def parse_args():
     )
     p.add_argument(
         'src_table',
-        help='table in the source database or an SQL query retrieving data set from it'
+        help='table in the source database or an SQL query retrieving data set from it. If contains no spaces assumed to be a table name and replaced with "SELECT * from <src_table>", otherwise untouched'
     )
     p.add_argument(
         'dest_table',
         nargs='?',
-        help='table in the destination database or an SQL query retrieving data set from it. If omitted dest_table is assumed the same as src_table'
+        help='same as src_table but for the destination database. If omitted takes value of src_table'
     )
     p.add_argument(
         '-target-table',
-        help='table in the destination database to update. Used when dest_table is a query'
+        help='table in the destination database to patch. Used when dest_table is a query'
     )
 
     args = p.parse_args()
@@ -67,5 +68,6 @@ if __name__ == '__main__':
         args.dest_db,
         args.src_table,
         args.dest_table,
-        args.target_table
+        args.target_table,
+        args.key
     ))
