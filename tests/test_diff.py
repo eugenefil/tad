@@ -131,3 +131,18 @@ def test_diff_with_multicolumn_key(tmpdb):
         ['+++', 'john', '456', 'tester'],
         ['---', 'john', '123', 'dev']
     ]
+
+
+def test_diff_with_key_and_typed_header(tmpdb):
+    assert diff(
+        'db2',
+        'db2',
+        "select 'john' name, '123' tel, 'dev' job from full",
+        "select 'john' name, '456' tel, 'tester' job from full",
+        typed_header=True,
+        key='name,tel'
+    ) == [
+        ['@@', 'name string', 'tel string', 'job string'],
+        ['+++', 'john', '456', 'tester'],
+        ['---', 'john', '123', 'dev']
+    ]

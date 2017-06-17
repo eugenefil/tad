@@ -4,6 +4,13 @@ import argparse
 import subprocess
 import tempfile
 import os
+import csv
+
+
+class Error(Exception):
+
+    def __init__(self, *args):
+        super().__init__(*args)
 
 
 def getdatafile(db, query, typed_header=False):
@@ -23,9 +30,31 @@ def getdatafile(db, query, typed_header=False):
     return filepath
 
 
+def get_typed_keycols(datafile, keycols):
+    with open(datafile, newline='', encoding='utf-8') as f:
+        header = next(csv.reader(f))
+    colnames = [col.split(' ')[0] for col in header]
+
+    keycol_indices = []
+    for col in keycols:
+        try:
+            keycol_indices.append(colnames.index(col))
+        except ValueError:
+            raise Error('key column %s was not found in table1 header' % col)
+
+    return [header[i] for i in keycol_indices]
+        
+
 def main(db1, db2, query1, query2, typed_header=False, keycols=[]):
     file1 = getdatafile(db1, query1, typed_header=typed_header)
     file2 = getdatafile(db2, query2, typed_header=typed_header)
+
+    # replace keycols with typed keycols from data file if header is
+    # typed, otherwise daff won't find non-typed keycols in typed
+    # header and will ignore them
+    if keycols and typed_header:
+        keycols = get_typed_keycols(file1, keycols)
+
     subprocess.call(
         ['daff', 'diff'] +
         ['--all-columns'] + # do not prune unchanged columns
@@ -61,7 +90,7 @@ def parse_args():
     )
     p.add_argument(
         'table1',
-        help='table in the first database or an SQL query retrieving data set from it. If contains no spaces assumed to be a table and replaced with "SELECT * from <table1>", otherwise passed as is'
+        help='table in the first database or an SQL query retrieving data set from it. If contains no spaces assumed to be a table name and replaced with "SELECT * from <table1>", otherwise untouched'
     )
     p.add_argument(
         'table2',
