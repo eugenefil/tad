@@ -61,16 +61,20 @@ def parse_args():
     )
     p.add_argument(
         'table1',
-        help='table in the first database or an SQL query retrieving data set from it'
+        help='table in the first database or an SQL query retrieving data set from it. If contains no spaces assumed to be a table and replaced with "SELECT * from <table1>", otherwise passed as is'
     )
     p.add_argument(
         'table2',
         nargs='?',
-        help='table in the second database or an SQL query retrieving data set from it. If omitted table2 is assumed the same as table1'
+        help='same as table1 but for the second database. If omitted takes value of table1'
     )
 
     args = p.parse_args()
     args.table2 = args.table2 or args.table1
+    args.table1, args.table2 = [
+        "select * from " + t if ' ' not in t else t
+        for t in [args.table1, args.table2]
+    ]
     return args
 
 
