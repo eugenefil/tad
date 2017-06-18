@@ -58,6 +58,7 @@ def main(db1, db2, query1, query2, typed_header=False, keycols=[]):
     subprocess.call(
         ['daff', 'diff'] +
         ['--all-columns'] + # do not prune unchanged columns
+        ['--unordered'] + # don't print context rows
         sum([['--id', col] for col in keycols], []) +
         [file1, file2]
     )
