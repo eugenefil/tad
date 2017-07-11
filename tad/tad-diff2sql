@@ -110,6 +110,11 @@ def gen_update_sql(table, updated_cols, keycols):
 
 
 def get_update_items(updated_rows):
+    """Transform a list of updated rows into a list of update items.
+    
+    Each item is a tuple of the following format:
+    (updated-column-indices, [(new-values, original-row-values)]).
+    """
     items = []
     for row in updated_rows:
         tag = row[0]
@@ -125,9 +130,49 @@ def get_update_items(updated_rows):
             else:
                 orig_row.append(val)
 
-        items.append((updated_cols, new_vals, orig_row))
+        items.append(
+            (updated_cols, [(new_vals, orig_row)])
+        )
         
     return items
+
+
+def gen_update_chunk(
+        update_item,
+        table,
+        colnames,
+        col_defs,
+        keycols,
+        keycol_defs,
+        keycol_selector
+    ):
+    updated_col_indices, pairs = update_item
+    updated_colnames = [colnames[i] for i in updated_col_indices]
+    updated_col_defs = [col_defs[i] for i in updated_col_indices]
+    return (
+        [gen_update_sql(table, updated_colnames, keycols)] +
+        [updated_col_defs + keycol_defs] +
+        [
+            new_vals + keycol_selector(orig_row)
+            for new_vals, orig_row in pairs
+        ]
+    )
+
+
+def group_update_items(items):
+    if len(items) == 0:
+        return []
+
+    updated_cols0, pairs0 = items[0]
+    rest = []
+    for item in items[1:]:
+        updated_cols, pairs = item
+        if updated_cols == updated_cols0:
+            pairs0 += pairs
+        else:
+            rest.append(item)
+
+    return [(updated_cols0, pairs0)] + group_update_items(rest)
 
 
 def gen_update_chunks(
@@ -138,21 +183,21 @@ def gen_update_chunks(
         keycol_selector
     ):
     updated_rows = filter(lambda r: r[0].endswith('->'), diffrows)
-    items = get_update_items(updated_rows)
-
+    items = group_update_items(get_update_items(updated_rows))
     keycols = keycol_selector(colnames)
     keycol_defs = keycol_selector(col_defs)
-
-    updates = []
-    for updated_col_indices, new_vals, orig_row in items:
-        updated_colnames = [colnames[i] for i in updated_col_indices]
-        updated_col_defs = [col_defs[i] for i in updated_col_indices]
-        updates.append([
-            gen_update_sql(table, updated_colnames, keycols),
-            updated_col_defs + keycol_defs,
-            new_vals + keycol_selector(orig_row)
-        ])
-    return updates
+    return [
+        gen_update_chunk(
+            item,
+            table,
+            colnames,
+            col_defs,
+            keycols,
+            keycol_defs,
+            keycol_selector
+        )
+        for item in items
+    ]
 
 
 def insert_between(value, lst):

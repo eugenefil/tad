@@ -1,5 +1,4 @@
 # TODO: tests
-# group same updates
 # wrong diff format
 # spaces in column names
 
@@ -267,4 +266,27 @@ def test_use_multicolumn_table_key():
         ['update t set job = ? where name = ? and tel = ?'],
         ['job', 'name', 'tel'],
         ['sales', 'bill', '345']
+    ]
+
+
+def test_group_updates_to_same_columns():
+    assert convert(
+        [
+            ['@@', 'id', 'name', 'tel'],
+            ['->', '1', 'john', '123->456'],
+            ['->', '2', 'bill->mark', '135'],
+            ['->', '3', 'sam', '567->765'],
+            ['->', '4', 'stan->jack', '246'],
+        ],
+        key='id'
+    ) == [
+        ['update t set tel = ? where id = ?'],
+        ['tel', 'id'],
+        ['456', '1'],
+        ['765', '3'],
+        [],
+        ['update t set name = ? where id = ?'],
+        ['name', 'id'],
+        ['mark', '2'],
+        ['jack', '4']
     ]
